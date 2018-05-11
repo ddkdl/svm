@@ -2,7 +2,31 @@ package preprocessor
 
 import "strings"
 
-func Tokenize(document string) []string {
+func RemoveHasthags(document string) string {
+	var newDocument string
+
+	// Use regex for this portion
+
+	return newDocument
+}
+
+func RemoveMentions(document string) string {
+	var newDocument string
+
+	// Use regex for this portion
+
+	return newDocument
+}
+
+func RemoveHyperlinks(document string) string {
+	var newDocument string
+
+	// Use regex for this portion
+
+	return newDocument
+}
+
+func RemoveStopwords(document string) []string {
 	var tokens []string
 	words := strings.Fields(document)
 
@@ -24,7 +48,7 @@ func TweetTokenizer(listOfTweets []string) [][]string {
 	var tokens [][]string
 
 	for _, element := range listOfTweets {
-		token := Tokenize(element)
+		token := RemoveStopwords(element)
 		tokens = append(tokens, token)
 	}
 
