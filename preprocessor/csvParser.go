@@ -1,16 +1,15 @@
 package preprocessor
 
 import (
-	"os"
-	"encoding/csv"
 	"bufio"
+	"encoding/csv"
 	"io"
 	"log"
-	"fmt"
+	"os"
 )
 
-func Parser(filename string) {
-	// var features []string
+func Parser(filename string) []string {
+	var tweetList []string
 
 	csvFile, _ := os.Open(filename)
 	reader := csv.NewReader(bufio.NewReader(csvFile))
@@ -18,12 +17,14 @@ func Parser(filename string) {
 
 	for {
 		document, err := reader.Read()
-		if err == io.EOF{
+		if err == io.EOF {
 			break
 		} else if err != nil {
 			log.Fatal(err)
 		}
 
-		fmt.Println(document[2])
+		tweetList = append(tweetList, document[2])
 	}
+
+	return tweetList
 }
