@@ -1,54 +1,65 @@
 package preprocessor
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
 
-func RemoveHasthags(document string) string {
-	var newDocument string
+func HasHashtag(word string) bool {
+	var hastagPattern = regexp.MustCompile(`#\w`)
 
-	// Use regex for this portion
-
-	return newDocument
+	return hastagPattern.MatchString(word)
 }
 
-func RemoveMentions(document string) string {
-	var newDocument string
+func HasMention(word string) bool {
+	var hastagPattern = regexp.MustCompile(`@\w`)
 
-	// Use regex for this portion
-
-	return newDocument
+	return hastagPattern.MatchString(word)
 }
 
-func RemoveHyperlinks(document string) string {
-	var newDocument string
+func HasHyperlink(word string) bool {
+	var hastagPattern = regexp.MustCompile(`https*://\w`)
 
-	// Use regex for this portion
-
-	return newDocument
+	return hastagPattern.MatchString(word)
 }
 
-func RemoveStopwords(document string) []string {
+func RemoveSpecialCharacters(word string) string {
+	var punctuationPattern = regexp.MustCompile(`\W*`)
+
+	return punctuationPattern.ReplaceAllLiteralString(word, ``)
+}
+
+func Tokenize(document string) []string {
 	var tokens []string
 	words := strings.Fields(document)
 
 	for _, element := range words {
 
 		element = strings.ToLower(element)
-		if stopwords[element] == true {
+		if stopwords[element] {
 			continue
 		}
+		if HasHyperlink(element) {
+			continue
+		}
+		if HasHashtag(element) {
+			continue
+		}
+		if HasMention(element) {
+			continue
+		}
+		element = RemoveSpecialCharacters(element)
 		tokens = append(tokens, element)
 	}
 
 	return tokens
 }
 
-// TO DO: Remove punctuation, remove hashtags and mentions,
-// remove hyperlinks, and remove extra spaces
 func TweetTokenizer(listOfTweets []string) [][]string {
 	var tokens [][]string
 
 	for _, element := range listOfTweets {
-		token := RemoveStopwords(element)
+		token := Tokenize(element)
 		tokens = append(tokens, token)
 	}
 

@@ -7,11 +7,7 @@ import (
 )
 
 func main() {
+	tweets := []string{"Hello", "http://sldfjdlfjs askf", "@holler this is the best", "#yo lo"}
 
-	tweetList := preprocessor.Parser("Asthma_Sample.csv")
-	tokens := preprocessor.TweetTokenizer(tweetList)
-
-	for _, element := range tokens {
-		fmt.Println(element)
-	}
+	fmt.Println(preprocessor.TweetTokenizer(tweets))
 }
