@@ -7,7 +7,13 @@ import (
 )
 
 func main() {
-	tweets := []string{"Hello", "http://sldfjdlfjs askf", "@holler this is the best", "#yo lo"}
+	tweets := [][]string{
+		{"arroz", "feijao", "quiabo"},
+		{"feijao", "arroz", "batata", "quiabo"},
+		{"matabala", "feijao", "batata"},
+		{"quiabo", "couve", "matabala"},
+		{"arroz", "tomate", "tomate"},
+	}
 
-	fmt.Println(preprocessor.TweetTokenizer(tweets))
+	fmt.Println(preprocessor.CreateDTM(tweets))
 }

@@ -3,6 +3,8 @@ package preprocessor
 import (
 	"regexp"
 	"strings"
+
+	"gonum.org/v1/gonum/mat"
 )
 
 func HasHashtag(word string) bool {
@@ -64,4 +66,45 @@ func TweetTokenizer(listOfTweets []string) [][]string {
 	}
 
 	return tokens
+}
+
+func FeatureList(tweets [][]string) map[string]int {
+	featureList := make(map[string]int)
+	counter := 0
+
+	for _, tweet := range tweets {
+		for _, word := range tweet {
+			if _, isInList := featureList[word]; !isInList {
+				featureList[word] = counter
+				counter++
+			}
+		}
+	}
+
+	return featureList
+}
+
+func CreateDTM(tweets [][]string) *mat.Dense {
+	featureList := FeatureList(tweets)
+
+	temp_dtm := make([][]int, len(tweets))
+	var dtm []float64
+
+	for i, _ := range temp_dtm {
+		temp_dtm[i] = make([]int, len(featureList))
+	}
+
+	for i, tweet := range tweets {
+		for _, word := range tweet {
+			temp_dtm[i][featureList[word]] += 1
+		}
+	}
+
+	for i, _ := range temp_dtm {
+		for j, _ := range temp_dtm[i] {
+			dtm = append(dtm, float64(temp_dtm[i][j]))
+		}
+	}
+
+	return mat.NewDense(len(tweets), len(featureList), dtm)
 }
