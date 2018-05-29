@@ -1,7 +1,7 @@
 package kernel
 
 type Kernel interface {
-	Evaluate(X float32, Y float32) float32
+	Evaluate(X float64, Y float64) float64
 }
 
 type LinearKernel struct {
@@ -15,23 +15,23 @@ type PolynomialKernel struct {
 
 type RBFKernel struct {
 	Kernel
-	sigma float32
+	sigma float64
 }
 
-func (lk *LinearKernel) Evaluate(X float32, Y float32) float32 {
+func (lk *LinearKernel) Evaluate(X float64, Y float64) float64 {
 	return X * Y
 }
 
-func (pk *PolynomialKernel) Evaluate(X float32, Y float32) float32 {
-	result := float32(1)
+func (pk *PolynomialKernel) Evaluate(X float64, Y float64) float64 {
+	result := float64(1)
 
 	for i := 1; i <= pk.degree; i++ {
-		result *= 1 + X * Y
+		result *= 1 + X*Y
 	}
 
 	return result
 }
 
-func (rbfk *RBFKernel) Evaluate(X float32, Y float32) float32 {
+func (rbfk *RBFKernel) Evaluate(X float64, Y float64) float64 {
 	return 1
 }
