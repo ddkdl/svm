@@ -4,96 +4,106 @@ import (
 	"math"
 	"math/rand"
 
+	"gonum.org/v1/gonum/mat"
+
 	"github.com/ddkdl/svm/kernel"
 )
 
-type Trainer struct {
-	kernel            kernel.Kernel
-	C                 float64
-	w                 []float64
-	b                 float64
-	numberOfDocuments int
-	alpha             []float64
-	tolerance         float64
-	X                 []float64
-	y                 []float64
+// Model is a good model
+type Model struct {
+	w             mat.Vector
+	b             float64
+	alpha         []float64
+	kernel        kernel.Kernel
+	tolerance     float64
+	X             *mat.Dense
+	y             mat.Vector
+	C             float64
+	documentCount int
+	errors        []float64
 }
 
-func (trn Trainer) train(maxPasses int) {
-	// initialize alphas and b with 0
-	for i := 0; i < trn.numberOfDocuments; i++ {
-		trn.alpha[i] = 0
-	}
-	// initialize passes to 0
+// NewModel is a good contructor
+func NewModel(kernel kernel.Kernel, C, tolerance float64) *Model {
+	model := new(Model)
+
+	model.w = nil
+	model.b = 0
+	model.alpha = nil
+
+	model.kernel = kernel
+	model.tolerance = tolerance
+
+	model.X = mat.NewDense(0, 0, nil)
+	model.y = nil
+	model.C = C
+	model.documentCount = 0
+	model.errors = nil
+
+	return model
+}
+
+// LoadTrainingSet is a good method
+func (model Model) LoadTrainingSet(documentTermMatrix mat.Dense, trainingLabels mat.Vector) {
+	model.X = &documentTermMatrix
+	model.documentCount, _ = model.X.Dims()
+	model.y = trainingLabels
+	model.alpha = make([]float64, model.documentCount)
+	model.errors = make([]float64, model.documentCount)
+}
+
+func (model Model) train(maxPasses int) {
 	passes := 0
 
-	// while passes is less than the max number of passes
 	for passes < maxPasses {
-		// number of alphas changed is set to zero
 		var numAlphasChanged = 0
 
-		// for i in range of number of documents
-		for i := 0; i < trn.numberOfDocuments; i++ {
-			// calculate the error (classification value - training label)
-			errorI := trn.error(i)
+		for i := 0; i < model.documentCount; i++ {
+			model.errorFor(i)
 
-			// if label*error less than - tolerance and multiplier less than C
-			// or label*error greater than tolerance and multiplier greater than 0
-			if trn.y[i]*errorI < -trn.tolerance && trn.alpha[i] < trn.C ||
-				trn.y[i]*errorI > trn.tolerance && trn.alpha[i] > 0 {
+			if model.checkBoundariesFor(i) {
 
-				// select an index randomly as long as it is different from the current i
-				j := rand.Intn(trn.numberOfDocuments)
+				j := rand.Intn(model.documentCount)
 
 				for i == j {
-					j = rand.Intn(trn.numberOfDocuments)
+					j = rand.Intn(model.documentCount)
 				}
 
-				// calculate the error for this index
-				errorJ := trn.error(j)
+				model.errorFor(j)
 
-				// save the old value of the multipliers
-				oldAlphaI := trn.alpha[i]
-				oldAlphaJ := trn.alpha[j]
+				oldAlphaI := model.alpha[i]
+				oldAlphaJ := model.alpha[j]
 
-				// compute L and H
-				L, H := trn.computeBounds(i, j)
+				L, H := model.computeBounds(i, j)
 
-				// if L and H are equal
 				if L == H {
-					// go on to the next iteration
 					continue
 				}
 
-				// compute fancy n
-				nParam := trn.computeNParam(i, j)
+				nParam := model.computeNParam(i, j)
 
-				// if fancy n greater than or equal to 0
 				if nParam >= 0 {
-					// go on to the next iteration
 					continue
 				}
 
-				// compute new alpha using those one equations
-				trn.alpha[j] = trn.clipAlpha(i, j, L, H, nParam)
+				model.alpha[j] = model.clipAlpha(i, j, L, H, nParam)
 
 				// if the alpha difference is less than 1e-5
-				if math.Abs(trn.alpha[j]-oldAlphaJ) < 1e-5 {
-					// go on to the next iteration
+				if math.Abs(model.alpha[j]-oldAlphaJ) < 1e-5 {
 					continue
 				}
 
 				// compute new alpha i
-				trn.alpha[i] = trn.updateAlpha(i, j, oldAlphaJ)
+				model.alpha[i] = model.updateAlpha(i, j, oldAlphaJ)
 
 				// compute b1
-				b1 := trn.computeB1(i, j, errorI, oldAlphaI, oldAlphaJ)
+				b1 := model.computeB1(i, j, oldAlphaI, oldAlphaJ)
 
 				// compute b2
-				b2 := trn.computeB2(i, j, errorJ, oldAlphaI, oldAlphaJ)
+				b2 := model.computeB2(i, j, oldAlphaI, oldAlphaJ)
 
 				// compute b
-				trn.b = trn.computeB(i, j, b1, b2)
+				model.b = model.computeB(i, j, b1, b2)
 
 				// increment number of alphas changed
 				numAlphasChanged++
@@ -109,14 +119,23 @@ func (trn Trainer) train(maxPasses int) {
 
 }
 
-func (trn Trainer) classify(i int) float64 {
+// This is for checking KKT conditions
+// TODO: Rename this functions and whatnot
+func (model Model) checkBoundariesFor(i int) bool {
+	conditionOne := model.y.At(i, 0)*model.errors[i] < -model.tolerance && model.alpha[i] < model.C
+	conditionTwo := model.y.At(i, 0)*model.errors[i] > model.tolerance && model.alpha[i] > 0
+
+	return conditionOne || conditionTwo
+}
+
+func (model Model) classify(i int) float64 {
 	sum := 0.0
 
-	for j := 0; j < trn.numberOfDocuments; j++ {
-		sum += trn.alpha[j] * float64(trn.y[j]) * trn.kernel.Evaluate(trn.X[j], trn.X[i])
+	for j := 0; j < model.documentCount; j++ {
+		sum += model.alpha[j] * model.y.At(j, 0) * model.kernel.Evaluate(model.X.RowView(j), model.X.RowView(i))
 	}
 
-	sum += trn.b
+	sum += model.b
 
 	if sum >= 0 {
 		return 1
@@ -126,37 +145,43 @@ func (trn Trainer) classify(i int) float64 {
 
 }
 
-func (trn Trainer) error(index int) float64 {
-	return trn.classify(index) - trn.y[index]
+func (model Model) errorAt(i int) float64 {
+	return model.errors[i]
 }
 
-func (trn Trainer) computeBounds(i, j int) (float64, float64) {
+func (model Model) errorFor(i int) {
+	model.errors[i] = model.classify(i) - model.y.At(i, 0)
+}
+
+func (model Model) computeBounds(i, j int) (float64, float64) {
 	var L float64
 	var H float64
 
-	if trn.y[i] != trn.y[j] {
-		diff := trn.alpha[j] - trn.alpha[i]
+	if model.y.At(i, 0) != model.y.At(j, 0) {
+		diff := model.alpha[j] - model.alpha[i]
 		L = math.Max(0, diff)
-		H = math.Min(trn.C, trn.C+diff)
+		H = math.Min(model.C, model.C+diff)
 	} else {
-		sum := trn.alpha[j] + trn.alpha[i]
-		L = math.Max(0, sum-trn.C)
-		H = math.Min(trn.C, sum)
+		sum := model.alpha[j] + model.alpha[i]
+		L = math.Max(0, sum-model.C)
+		H = math.Min(model.C, sum)
 	}
 
 	return L, H
 }
 
-func (trn Trainer) computeNParam(i, j int) float64 {
-	kij := trn.kernel.Evaluate(trn.X[i], trn.X[j])
-	kii := trn.kernel.Evaluate(trn.X[i], trn.X[i])
-	kjj := trn.kernel.Evaluate(trn.X[j], trn.X[j])
+func (model Model) computeNParam(i, j int) float64 {
+	kij := model.kernel.Evaluate(model.X.RowView(i), model.X.RowView(j))
+	kii := model.kernel.Evaluate(model.X.RowView(i), model.X.RowView(i))
+	kjj := model.kernel.Evaluate(model.X.RowView(j), model.X.RowView(j))
 
 	return 2*kij - kii - kjj
 }
 
-func (trn Trainer) clipAlpha(i, j int, L, H, nParam float64) float64 {
-	newAlpha := trn.alpha[j] - trn.y[j]*(trn.error(i)-trn.error(j))/nParam
+func (model Model) clipAlpha(i, j int, L, H, nParam float64) float64 {
+	step := model.y.At(j, 0) * (model.errors[i] - model.errors[j]) / nParam
+
+	newAlpha := model.alpha[j] - step
 
 	if newAlpha > H {
 		return H
@@ -167,28 +192,28 @@ func (trn Trainer) clipAlpha(i, j int, L, H, nParam float64) float64 {
 	}
 }
 
-func (trn Trainer) updateAlpha(i, j int, oldAlphaJ float64) float64 {
-	return trn.alpha[i] + trn.y[i]*trn.y[j]*(oldAlphaJ-trn.alpha[j])
+func (model Model) updateAlpha(i, j int, oldAlphaJ float64) float64 {
+	return model.alpha[i] + model.y.At(i, 0)*model.y.At(j, 0)*(oldAlphaJ-model.alpha[j])
 }
 
-func (trn Trainer) computeB1(i, j int, errorI, oldAlphaI, oldAlphaJ float64) float64 {
-	partOne := trn.y[i] * (trn.alpha[i] - oldAlphaI) * trn.kernel.Evaluate(trn.X[i], trn.X[i])
-	partTwo := trn.y[j] * (trn.alpha[j] - oldAlphaJ) * trn.kernel.Evaluate(trn.X[i], trn.X[j])
+func (model Model) computeB1(i, j int, oldAlphaI, oldAlphaJ float64) float64 {
+	partOne := model.y.At(i, 0) * (model.alpha[i] - oldAlphaI) * model.kernel.Evaluate(model.X.RowView(i), model.X.RowView(i))
+	partTwo := model.y.At(j, 0) * (model.alpha[j] - oldAlphaJ) * model.kernel.Evaluate(model.X.RowView(i), model.X.RowView(j))
 
-	return trn.b - errorI - partOne - partTwo
+	return model.b - model.errors[i] - partOne - partTwo
 }
 
-func (trn Trainer) computeB2(i, j int, errorJ, oldAlphaI, oldAlphaJ float64) float64 {
-	partOne := trn.y[i] * (trn.alpha[i] - oldAlphaI) * trn.kernel.Evaluate(trn.X[i], trn.X[j])
-	partTwo := trn.y[j] * (trn.alpha[j] - oldAlphaJ) * trn.kernel.Evaluate(trn.X[j], trn.X[j])
+func (model Model) computeB2(i, j int, oldAlphaI, oldAlphaJ float64) float64 {
+	partOne := model.y.At(i, 0) * (model.alpha[i] - oldAlphaI) * model.kernel.Evaluate(model.X.RowView(i), model.X.RowView(j))
+	partTwo := model.y.At(j, 0) * (model.alpha[j] - oldAlphaJ) * model.kernel.Evaluate(model.X.RowView(j), model.X.RowView(j))
 
-	return trn.b - errorJ - partOne - partTwo
+	return model.b - model.errors[j] - partOne - partTwo
 }
 
-func (trn Trainer) computeB(i, j int, b1, b2 float64) float64 {
-	if trn.alpha[i] > 0 && trn.alpha[i] < trn.C {
+func (model Model) computeB(i, j int, b1, b2 float64) float64 {
+	if model.alpha[i] > 0 && model.alpha[i] < model.C {
 		return b1
-	} else if trn.alpha[j] > 0 && trn.alpha[j] < trn.C {
+	} else if model.alpha[j] > 0 && model.alpha[j] < model.C {
 		return b2
 	} else {
 		return (b1 + b2) / 2

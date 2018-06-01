@@ -19,7 +19,6 @@ func CalculateGramMatrix(X *mat.Dense) *mat.Dense {
 }
 
 func CalculateYOuterProduct(y *mat.VecDense) *mat.Dense {
-	// vec := y.ColView(0)
 	size := y.Len()
 
 	res := mat.NewDense(size, size, nil)
