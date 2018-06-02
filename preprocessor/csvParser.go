@@ -8,6 +8,7 @@ import (
 	"os"
 )
 
+// Parser is a good funk
 func Parser(filename string) []string {
 	var tweetList []string
 

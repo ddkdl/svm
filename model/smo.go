@@ -1,100 +1,221 @@
 package model
 
-type Trainer struct {
-	kernel kernel.Kernel
-	C int
-	w []float64
-	b float64
-	m int
-	n int
-	alphas []float64
-	tolerance float64
-	X []float64
-	y []int
+import (
+	"math"
+	"math/rand"
+
+	"gonum.org/v1/gonum/mat"
+
+	"github.com/ddkdl/svm/kernel"
+)
+
+// Model is a good model
+type Model struct {
+	w             mat.Vector
+	b             float64
+	alpha         []float64
+	kernel        kernel.Kernel
+	tolerance     float64
+	X             *mat.Dense
+	y             mat.Vector
+	C             float64
+	documentCount int
+	errors        []float64
 }
 
-func NewTrainer() Trainer {
-	// create a new trainer
+// NewModel is a good contructor
+func NewModel(kernel kernel.Kernel, C, tolerance float64) *Model {
+	model := new(Model)
+
+	model.w = nil
+	model.b = 0
+	model.alpha = nil
+
+	model.kernel = kernel
+	model.tolerance = tolerance
+
+	model.X = mat.NewDense(0, 0, nil)
+	model.y = nil
+	model.C = C
+	model.documentCount = 0
+	model.errors = nil
+
+	return model
 }
 
-func (trn Trainer) train() {
-	// initialize alphas and b with 0
-	// initialize passes to 0
-	// while passes is less than the max number of passes
-		// number of alphas changed is set to zero
-		// for i in range of number of documents
-			// calculate the error (classification value - training label)
-			// if label*error less than - tolerance and multiplier less than C
-			//		or label*error greater than tolerance and multiplier greater than 0
-				// select an index randomly as long as it is different from the current i
-				// calculate the error for this index
-				// save the old value of the multipliers
-				// compute L and H
-				// if L and H are equal 
-					// go on to the next iteration
-				// compute fancy n
-				// if fancy n greater than or equal to 0
-					// go on to the next iteration
-				// compute new alpha using those one equations
+// LoadTrainingSet is a good method
+func (model Model) LoadTrainingSet(documentTermMatrix mat.Dense, trainingLabels mat.Vector) {
+	model.X = &documentTermMatrix
+	model.documentCount, _ = model.X.Dims()
+	model.y = trainingLabels
+	model.alpha = make([]float64, model.documentCount)
+	model.errors = make([]float64, model.documentCount)
 }
 
-func (trn Trainer) classify(i int) int {
-	sum := 0
+func (model Model) train(maxPasses int) {
+	passes := 0
 
-	for j:= 0; j < m; j++ {
-		sum += alphas[j] * y[j] * kernel.Evaluate(X[j], X[i])
+	for passes < maxPasses {
+		var numAlphasChanged = 0
+
+		for i := 0; i < model.documentCount; i++ {
+			model.errorFor(i)
+
+			if model.checkBoundariesFor(i) {
+
+				j := rand.Intn(model.documentCount)
+
+				for i == j {
+					j = rand.Intn(model.documentCount)
+				}
+
+				model.errorFor(j)
+
+				oldAlphaI := model.alpha[i]
+				oldAlphaJ := model.alpha[j]
+
+				L, H := model.computeBounds(i, j)
+
+				if L == H {
+					continue
+				}
+
+				nParam := model.computeNParam(i, j)
+
+				if nParam >= 0 {
+					continue
+				}
+
+				model.alpha[j] = model.clipAlpha(i, j, L, H, nParam)
+
+				// if the alpha difference is less than 1e-5
+				if math.Abs(model.alpha[j]-oldAlphaJ) < 1e-5 {
+					continue
+				}
+
+				// compute new alpha i
+				model.alpha[i] = model.updateAlpha(i, j, oldAlphaJ)
+
+				// compute b1
+				b1 := model.computeB1(i, j, oldAlphaI, oldAlphaJ)
+
+				// compute b2
+				b2 := model.computeB2(i, j, oldAlphaI, oldAlphaJ)
+
+				// compute b
+				model.b = model.computeB(i, j, b1, b2)
+
+				// increment number of alphas changed
+				numAlphasChanged++
+			}
+		}
+
+		if numAlphasChanged == 0 {
+			passes++
+		} else {
+			passes = 0
+		}
 	}
 
-	sum += b
+}
+
+// This is for checking KKT conditions
+// TODO: Rename this functions and whatnot
+func (model Model) checkBoundariesFor(i int) bool {
+	conditionOne := model.y.At(i, 0)*model.errors[i] < -model.tolerance && model.alpha[i] < model.C
+	conditionTwo := model.y.At(i, 0)*model.errors[i] > model.tolerance && model.alpha[i] > 0
+
+	return conditionOne || conditionTwo
+}
+
+func (model Model) classify(i int) float64 {
+	sum := 0.0
+
+	for j := 0; j < model.documentCount; j++ {
+		sum += model.alpha[j] * model.y.At(j, 0) * model.kernel.Evaluate(model.X.RowView(j), model.X.RowView(i))
+	}
+
+	sum += model.b
 
 	if sum >= 0 {
 		return 1
 	}
-	else {
-		return -1
-	}
+
+	return -1
+
 }
 
-func (trn Trainer) error(index int) float64 {
-	return classify(index) - y[index]
+func (model Model) errorAt(i int) float64 {
+	return model.errors[i]
 }
 
-func (trn Trainer) computeBounds(i, j int) float64, float64 {
+func (model Model) errorFor(i int) {
+	model.errors[i] = model.classify(i) - model.y.At(i, 0)
+}
+
+func (model Model) computeBounds(i, j int) (float64, float64) {
 	var L float64
 	var H float64
 
-	if y[i] != y[j] {
-		diff := alpha[j] - alpha[i]
+	if model.y.At(i, 0) != model.y.At(j, 0) {
+		diff := model.alpha[j] - model.alpha[i]
 		L = math.Max(0, diff)
-		H = math.Min(C, C + diff)
-	}
-	else {
-		sum := alpha[j] + alpha[i]
-		L = math.Max(0, sum - C)
-		H = math.Min(C, sum)
+		H = math.Min(model.C, model.C+diff)
+	} else {
+		sum := model.alpha[j] + model.alpha[i]
+		L = math.Max(0, sum-model.C)
+		H = math.Min(model.C, sum)
 	}
 
 	return L, H
 }
 
-func (trn Trainer) computeNParam(i, j int) float64 {
-	kij := kernel.Evaluate(X[i], X[j])
-	kii := kernel.Evaluate(X[i], X[i])
-	kjj := kernel.Evaluate(X[j], X[j])
+func (model Model) computeNParam(i, j int) float64 {
+	kij := model.kernel.Evaluate(model.X.RowView(i), model.X.RowView(j))
+	kii := model.kernel.Evaluate(model.X.RowView(i), model.X.RowView(i))
+	kjj := model.kernel.Evaluate(model.X.RowView(j), model.X.RowView(j))
 
-	return 2 * kij - kii - kj
+	return 2*kij - kii - kjj
 }
 
-func (trn Trainer) clipAlpha(i, j int, L, H, n_param float64) float64 {
-	newAlpha := alphas[j] - y[j] * (error(i) - error(j)) / n_param
+func (model Model) clipAlpha(i, j int, L, H, nParam float64) float64 {
+	step := model.y.At(j, 0) * (model.errors[i] - model.errors[j]) / nParam
+
+	newAlpha := model.alpha[j] - step
 
 	if newAlpha > H {
 		return H
-	}
-	else if newAlpha < L {
+	} else if newAlpha < L {
 		return L
-	}
-	else {
+	} else {
 		return newAlpha
+	}
+}
+
+func (model Model) updateAlpha(i, j int, oldAlphaJ float64) float64 {
+	return model.alpha[i] + model.y.At(i, 0)*model.y.At(j, 0)*(oldAlphaJ-model.alpha[j])
+}
+
+func (model Model) computeB1(i, j int, oldAlphaI, oldAlphaJ float64) float64 {
+	partOne := model.y.At(i, 0) * (model.alpha[i] - oldAlphaI) * model.kernel.Evaluate(model.X.RowView(i), model.X.RowView(i))
+	partTwo := model.y.At(j, 0) * (model.alpha[j] - oldAlphaJ) * model.kernel.Evaluate(model.X.RowView(i), model.X.RowView(j))
+
+	return model.b - model.errors[i] - partOne - partTwo
+}
+
+func (model Model) computeB2(i, j int, oldAlphaI, oldAlphaJ float64) float64 {
+	partOne := model.y.At(i, 0) * (model.alpha[i] - oldAlphaI) * model.kernel.Evaluate(model.X.RowView(i), model.X.RowView(j))
+	partTwo := model.y.At(j, 0) * (model.alpha[j] - oldAlphaJ) * model.kernel.Evaluate(model.X.RowView(j), model.X.RowView(j))
+
+	return model.b - model.errors[j] - partOne - partTwo
+}
+
+func (model Model) computeB(i, j int, b1, b2 float64) float64 {
+	if model.alpha[i] > 0 && model.alpha[i] < model.C {
+		return b1
+	} else if model.alpha[j] > 0 && model.alpha[j] < model.C {
+		return b2
+	} else {
+		return (b1 + b2) / 2
 	}
 }
