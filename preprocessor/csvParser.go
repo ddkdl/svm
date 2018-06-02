@@ -6,11 +6,13 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 )
 
 // Parser is a good funk
-func Parser(filename string) []string {
+func Parser(filename string) ([]string, []float64) {
 	var tweetList []string
+	var labelList []float64
 
 	csvFile, _ := os.Open(filename)
 	reader := csv.NewReader(bufio.NewReader(csvFile))
@@ -25,7 +27,9 @@ func Parser(filename string) []string {
 		}
 
 		tweetList = append(tweetList, document[2])
+		label, _ := strconv.ParseFloat(document[11], 64)
+		labelList = append(labelList, label)
 	}
 
-	return tweetList
+	return tweetList, labelList
 }

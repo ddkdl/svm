@@ -3,39 +3,25 @@ package main
 import (
 	"fmt"
 
-	"gonum.org/v1/gonum/mat"
+	"github.com/ddkdl/svm/kernel"
 
 	"github.com/ddkdl/svm/model"
 	"github.com/ddkdl/svm/preprocessor"
+	"gonum.org/v1/gonum/mat"
 )
 
 func main() {
-	tweets := [][]string{
-		{"arroz", "feijao", "quiabo"},
-		{"feijao", "arroz", "batata", "quiabo"},
-		{"matabala", "feijao", "batata"},
-		{"quiabo", "couve", "matabala"},
-		{"arroz", "tomate", "tomate"},
-	}
+	tweets, labels := preprocessor.Parser("Asthma_Sample.csv")
+	tokenizedTweets := preprocessor.TweetTokenizer(tweets)
+	dtm := preprocessor.CreateDocumentTermMatrix(tokenizedTweets)
+	realLabels := preprocessor.CreateLabelVector(labels)
 
-	X := preprocessor.CreateDTM(tweets)
-	fmt.Println("Printing X")
-	printMatrix(X)
+	svmModel := model.NewModel(kernel.NewLinearKernel(), 1.0, 1)
 
-	K := model.CalculateGramMatrix(X)
-	fmt.Println("Printing K")
-	printMatrix(K)
+	svmModel.LoadTrainingSet(dtm, realLabels)
+	svmModel.Train(5)
 
-	y := mat.NewVecDense(5, []float64{1, 1, 0, 0, 1})
-
-	yOuter := model.CalculateYOuterProduct(y)
-	fmt.Println("Printing yOuter")
-	printMatrix(yOuter)
-
-	res := model.CalculateD(K, yOuter)
-	fmt.Println("Printing D")
-	printMatrix(res)
-
+	fmt.Println(svmModel)
 }
 
 func printMatrix(a *mat.Dense) {

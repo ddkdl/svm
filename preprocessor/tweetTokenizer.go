@@ -96,7 +96,8 @@ func createFeatureList(tokenizedTweets [][]string) map[string]int {
 	return featureList
 }
 
-func createDocumentTermMatrix(tweetList [][]string) *mat.Dense {
+// CreateDocumentTermMatrix be good like Vera
+func CreateDocumentTermMatrix(tweetList [][]string) *mat.Dense {
 	featureList := createFeatureList(tweetList)
 
 	tempDTM := make([][]int, len(tweetList))
@@ -119,4 +120,9 @@ func createDocumentTermMatrix(tweetList [][]string) *mat.Dense {
 	}
 
 	return mat.NewDense(len(tweetList), len(featureList), DTM)
+}
+
+// CreateLabelVector is a function I am being forced to comment cuz reasons
+func CreateLabelVector(labelList []float64) mat.Vector {
+	return mat.NewVecDense(len(labelList), labelList)
 }

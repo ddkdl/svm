@@ -24,6 +24,12 @@ type RBFKernel struct {
 	sigma float64
 }
 
+// NewLinearKernel is a fnc
+func NewLinearKernel() Kernel {
+
+	return &LinearKernel{}
+}
+
 // Evaluate is gooder
 func (lk LinearKernel) Evaluate(X mat.Vector, Y mat.Vector) float64 {
 	return mat.Dot(X, Y)
