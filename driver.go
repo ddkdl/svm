@@ -16,9 +16,11 @@ func main() {
 	dtm := preprocessor.CreateDocumentTermMatrix(tokenizedTweets)
 	realLabels := preprocessor.CreateLabelVector(labels)
 
-	svmModel := model.NewModel(kernel.NewLinearKernel(), 1.0, 1)
+	svmModel := model.NewModel(kernel.NewLinearKernel(), 1.0, 0.001)
 
 	svmModel.LoadTrainingSet(dtm, realLabels)
+	// fmt.Println(svmModel.Y)
+	// fmt.Println(svmModel.X)
 	svmModel.Train(5)
 
 	fmt.Println(svmModel)

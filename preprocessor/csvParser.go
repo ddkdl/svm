@@ -13,6 +13,7 @@ import (
 func Parser(filename string) ([]string, []float64) {
 	var tweetList []string
 	var labelList []float64
+	first := true
 
 	csvFile, _ := os.Open(filename)
 	reader := csv.NewReader(bufio.NewReader(csvFile))
@@ -25,9 +26,13 @@ func Parser(filename string) ([]string, []float64) {
 		} else if err != nil {
 			log.Fatal(err)
 		}
+		if first {
+			first = false
+			continue
+		}
 
 		tweetList = append(tweetList, document[2])
-		label, _ := strconv.ParseFloat(document[11], 64)
+		label, _ := strconv.ParseFloat(document[12], 64)
 		labelList = append(labelList, label)
 	}
 

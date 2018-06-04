@@ -17,7 +17,7 @@ type Model struct {
 	kernel        kernel.Kernel
 	tolerance     float64
 	X             *mat.Dense
-	y             mat.Vector
+	Y             mat.Vector
 	C             float64
 	documentCount int
 	errors        []float64
@@ -35,7 +35,7 @@ func NewModel(kernel kernel.Kernel, C, tolerance float64) *Model {
 	model.tolerance = tolerance
 
 	model.X = mat.NewDense(0, 0, nil)
-	model.y = nil
+	model.Y = nil
 	model.C = C
 	model.documentCount = 0
 	model.errors = nil
@@ -47,7 +47,7 @@ func NewModel(kernel kernel.Kernel, C, tolerance float64) *Model {
 func (model *Model) LoadTrainingSet(documentTermMatrix *mat.Dense, trainingLabels mat.Vector) {
 	model.X = documentTermMatrix
 	model.documentCount, _ = model.X.Dims()
-	model.y = trainingLabels
+	model.Y = trainingLabels
 	model.alpha = make([]float64, model.documentCount)
 	model.errors = make([]float64, model.documentCount)
 }
@@ -63,7 +63,6 @@ func (model *Model) Train(maxPasses int) {
 			model.errorFor(i)
 
 			if model.checkBoundariesFor(i) {
-
 				j := rand.Intn(model.documentCount)
 
 				for i == j {
@@ -123,8 +122,8 @@ func (model *Model) Train(maxPasses int) {
 // This is for checking KKT conditions
 // TODO: Rename this functions and whatnot
 func (model *Model) checkBoundariesFor(i int) bool {
-	conditionOne := model.y.At(i, 0)*model.errors[i] < -model.tolerance && model.alpha[i] < model.C
-	conditionTwo := model.y.At(i, 0)*model.errors[i] > model.tolerance && model.alpha[i] > 0
+	conditionOne := ((model.Y.At(i, 0) * model.errors[i]) < -(model.tolerance)) && (model.alpha[i] < model.C)
+	conditionTwo := ((model.Y.At(i, 0) * model.errors[i]) > (model.tolerance)) && (model.alpha[i] > 0)
 
 	return conditionOne || conditionTwo
 }
@@ -133,7 +132,7 @@ func (model *Model) classify(document mat.Vector) float64 {
 	sum := 0.0
 
 	for j := 0; j < model.documentCount; j++ {
-		sum += model.alpha[j] * model.y.At(j, 0) * model.kernel.Evaluate(model.X.RowView(j), document)
+		sum += model.alpha[j] * model.Y.At(j, 0) * model.kernel.Evaluate(model.X.RowView(j), document)
 	}
 
 	sum += model.b
@@ -151,14 +150,14 @@ func (model *Model) errorAt(i int) float64 {
 }
 
 func (model *Model) errorFor(i int) {
-	model.errors[i] = model.classify(model.X.RowView(i)) - model.y.At(i, 0)
+	model.errors[i] = model.classify(model.X.RowView(i)) - model.Y.At(i, 0)
 }
 
 func (model *Model) computeBounds(i, j int) (float64, float64) {
 	var L float64
 	var H float64
 
-	if model.y.At(i, 0) != model.y.At(j, 0) {
+	if model.Y.At(i, 0) != model.Y.At(j, 0) {
 		diff := model.alpha[j] - model.alpha[i]
 		L = math.Max(0, diff)
 		H = math.Min(model.C, model.C+diff)
@@ -180,7 +179,7 @@ func (model *Model) computeNParam(i, j int) float64 {
 }
 
 func (model *Model) clipAlpha(i, j int, L, H, nParam float64) float64 {
-	step := model.y.At(j, 0) * (model.errors[i] - model.errors[j]) / nParam
+	step := model.Y.At(j, 0) * (model.errors[i] - model.errors[j]) / nParam
 
 	newAlpha := model.alpha[j] - step
 
@@ -194,19 +193,19 @@ func (model *Model) clipAlpha(i, j int, L, H, nParam float64) float64 {
 }
 
 func (model *Model) updateAlpha(i, j int, oldAlphaJ float64) float64 {
-	return model.alpha[i] + model.y.At(i, 0)*model.y.At(j, 0)*(oldAlphaJ-model.alpha[j])
+	return model.alpha[i] + model.Y.At(i, 0)*model.Y.At(j, 0)*(oldAlphaJ-model.alpha[j])
 }
 
 func (model *Model) computeB1(i, j int, oldAlphaI, oldAlphaJ float64) float64 {
-	partOne := model.y.At(i, 0) * (model.alpha[i] - oldAlphaI) * model.kernel.Evaluate(model.X.RowView(i), model.X.RowView(i))
-	partTwo := model.y.At(j, 0) * (model.alpha[j] - oldAlphaJ) * model.kernel.Evaluate(model.X.RowView(i), model.X.RowView(j))
+	partOne := model.Y.At(i, 0) * (model.alpha[i] - oldAlphaI) * model.kernel.Evaluate(model.X.RowView(i), model.X.RowView(i))
+	partTwo := model.Y.At(j, 0) * (model.alpha[j] - oldAlphaJ) * model.kernel.Evaluate(model.X.RowView(i), model.X.RowView(j))
 
 	return model.b - model.errors[i] - partOne - partTwo
 }
 
 func (model *Model) computeB2(i, j int, oldAlphaI, oldAlphaJ float64) float64 {
-	partOne := model.y.At(i, 0) * (model.alpha[i] - oldAlphaI) * model.kernel.Evaluate(model.X.RowView(i), model.X.RowView(j))
-	partTwo := model.y.At(j, 0) * (model.alpha[j] - oldAlphaJ) * model.kernel.Evaluate(model.X.RowView(j), model.X.RowView(j))
+	partOne := model.Y.At(i, 0) * (model.alpha[i] - oldAlphaI) * model.kernel.Evaluate(model.X.RowView(i), model.X.RowView(j))
+	partTwo := model.Y.At(j, 0) * (model.alpha[j] - oldAlphaJ) * model.kernel.Evaluate(model.X.RowView(j), model.X.RowView(j))
 
 	return model.b - model.errors[j] - partOne - partTwo
 }
