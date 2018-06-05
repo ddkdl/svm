@@ -8,19 +8,32 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
+type TweetTokenizer struct {
+	featureList    map[string]int
+	hasFeatureList bool
+}
+
+func NewTokenizer() *TweetTokenizer {
+	tokenizer := new(TweetTokenizer)
+	tokenizer.featureList = make(map[string]int)
+	tokenizer.hasFeatureList = false
+
+	return tokenizer
+}
+
 // TweetTokenizer is a function that operates on things.
-func TweetTokenizer(listOfTweets []string) [][]string {
+func (tokenizer *TweetTokenizer) TokenizeTweets(listOfTweets []string) [][]string {
 	var listOfTokens [][]string
 
 	for _, tweet := range listOfTweets {
-		tokens := tokenize(tweet)
+		tokens := tokenizer.tokenize(tweet)
 		listOfTokens = append(listOfTokens, tokens)
 	}
 
 	return listOfTokens
 }
 
-func tokenize(sentence string) []string {
+func (tokenizer *TweetTokenizer) tokenize(sentence string) []string {
 	var tokens []string
 	listOfWords := strings.Fields(sentence)
 
@@ -80,36 +93,36 @@ func removeSpecialCharacters(word string) string {
 	return punctuationPattern.ReplaceAllLiteralString(word, ``)
 }
 
-func createFeatureList(tokenizedTweets [][]string) map[string]int {
-	featureList := make(map[string]int)
+func (tokenizer *TweetTokenizer) createFeatureList(tokenizedTweets [][]string) {
 	featureIndex := 0
 
 	for _, tweet := range tokenizedTweets {
 		for _, word := range tweet {
-			if _, isInList := featureList[word]; !isInList {
-				featureList[word] = featureIndex
+			if _, isInList := tokenizer.featureList[word]; !isInList {
+				tokenizer.featureList[word] = featureIndex
 				featureIndex++
 			}
 		}
 	}
-
-	return featureList
 }
 
 // CreateDocumentTermMatrix be good like Vera
-func CreateDocumentTermMatrix(tweetList [][]string) *mat.Dense {
-	featureList := createFeatureList(tweetList)
+func (tokenizer *TweetTokenizer) CreateDocumentTermMatrix(tweetList [][]string) *mat.Dense {
+	if !tokenizer.hasFeatureList {
+		tokenizer.createFeatureList(tweetList)
+		tokenizer.hasFeatureList = true
+	}
 
 	tempDTM := make([][]int, len(tweetList))
 	var DTM []float64
 
 	for i := range tempDTM {
-		tempDTM[i] = make([]int, len(featureList))
+		tempDTM[i] = make([]int, len(tokenizer.featureList))
 	}
 
 	for i, tweet := range tweetList {
 		for _, word := range tweet {
-			tempDTM[i][featureList[word]]++
+			tempDTM[i][tokenizer.featureList[word]]++
 		}
 	}
 
@@ -119,7 +132,7 @@ func CreateDocumentTermMatrix(tweetList [][]string) *mat.Dense {
 		}
 	}
 
-	return mat.NewDense(len(tweetList), len(featureList), DTM)
+	return mat.NewDense(len(tweetList), len(tokenizer.featureList), DTM)
 }
 
 // CreateLabelVector is a function I am being forced to comment cuz reasons

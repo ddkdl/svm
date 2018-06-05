@@ -26,8 +26,11 @@ type RBFKernel struct {
 
 // NewLinearKernel is a fnc
 func NewLinearKernel() Kernel {
-
 	return &LinearKernel{}
+}
+
+func NewPolynomialKernel(degree int) Kernel {
+	return &PolynomialKernel{degree: degree}
 }
 
 // Evaluate is gooder

@@ -1,35 +1,31 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/ddkdl/svm/kernel"
-
 	"github.com/ddkdl/svm/model"
 	"github.com/ddkdl/svm/preprocessor"
-	"gonum.org/v1/gonum/mat"
 )
 
 func main() {
-	tweets, labels := preprocessor.Parser("Asthma_Sample.csv")
-	tokenizedTweets := preprocessor.TweetTokenizer(tweets)
-	dtm := preprocessor.CreateDocumentTermMatrix(tokenizedTweets)
+	tokenizer := preprocessor.NewTokenizer()
+	tweets := preprocessor.ParseText("Cancer_Sample.csv")
+	labels := preprocessor.ParseLabel("Cancer_Sample.csv")
+	tokenizedTweets := tokenizer.TokenizeTweets(tweets)
+	dtm := tokenizer.CreateDocumentTermMatrix(tokenizedTweets)
 	realLabels := preprocessor.CreateLabelVector(labels)
 
-	svmModel := model.NewModel(kernel.NewLinearKernel(), 1.0, 0.001)
+	testSet := preprocessor.ParseText("Cancer_test.csv")
+	tokenizedTestSet := tokenizer.TokenizeTweets(testSet)
+	testDTM := tokenizer.CreateDocumentTermMatrix(tokenizedTestSet)
 
-	svmModel.LoadTrainingSet(dtm, realLabels)
-	// fmt.Println(svmModel.Y)
-	// fmt.Println(svmModel.X)
-	svmModel.Train(5)
+	classifier := model.NewTweetClassifier(kernel.NewPolynomialKernel(5), 10, 0.001)
 
-	fmt.Println(svmModel)
-}
+	classifier.LoadTrainingSet(dtm, realLabels)
+	classifier.LoadTestSet(testDTM)
+	classifier.LoadValidationLabels("Cancer_Test_Results.csv")
+	classifier.Train(5)
+	classifier.ClassifyTweets()
+	classifier.Validate()
+	classifier.StoreResults("labels_after_classificaiton.txt", "stats_after_classification.txt")
 
-func printMatrix(a *mat.Dense) {
-	rows, _ := a.Dims()
-
-	for i := 0; i < rows; i++ {
-		fmt.Println(a.RowView(i))
-	}
 }
