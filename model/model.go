@@ -43,8 +43,7 @@ func NewModel(kernel kernel.Kernel, C, tolerance float64) *Model {
 	return model
 }
 
-// LoadTrainingSet is a good method
-func (model *Model) LoadTrainingSet(documentTermMatrix *mat.Dense, trainingLabels mat.Vector) {
+func (model *Model) loadTrainingSet(documentTermMatrix *mat.Dense, trainingLabels mat.Vector) {
 	model.X = documentTermMatrix
 	model.documentCount, _ = model.X.Dims()
 	model.Y = trainingLabels
@@ -128,7 +127,8 @@ func (model *Model) checkBoundariesFor(i int) bool {
 	return conditionOne || conditionTwo
 }
 
-func (model *Model) classify(document mat.Vector) float64 {
+// Classify does great things
+func (model *Model) Classify(document mat.Vector) float64 {
 	sum := 0.0
 
 	for j := 0; j < model.documentCount; j++ {
@@ -150,7 +150,7 @@ func (model *Model) errorAt(i int) float64 {
 }
 
 func (model *Model) errorFor(i int) {
-	model.errors[i] = model.classify(model.X.RowView(i)) - model.Y.At(i, 0)
+	model.errors[i] = model.Classify(model.X.RowView(i)) - model.Y.At(i, 0)
 }
 
 func (model *Model) computeBounds(i, j int) (float64, float64) {
