@@ -1,10 +1,10 @@
-Accuracy: 0.775
+Accuracy: 0.803
 
-Hit Rate: 0.8019925280199253
+Hit Rate: 1
 
-Specificity: 0.6649746192893401
+Specificity: 0
 
-Precision: 0.9070422535211268
+Precision: 0.803
 
-F1-Score: 0.8512888301387971
+F1-Score: 0.8907376594564614
 

@@ -1,6 +1,10 @@
 package kernel
 
-import "gonum.org/v1/gonum/mat"
+import (
+	"math"
+
+	"gonum.org/v1/gonum/mat"
+)
 
 // Kernel is good
 type Kernel interface {
@@ -33,6 +37,10 @@ func NewPolynomialKernel(degree int) Kernel {
 	return &PolynomialKernel{degree: degree}
 }
 
+func NewRBFKernel(sigma float64) Kernel {
+	return &RBFKernel{sigma: sigma}
+}
+
 // Evaluate is gooder
 func (lk LinearKernel) Evaluate(X mat.Vector, Y mat.Vector) float64 {
 	return mat.Dot(X, Y)
@@ -50,6 +58,15 @@ func (pk PolynomialKernel) Evaluate(X mat.Vector, Y mat.Vector) float64 {
 }
 
 // Evaluate is gooder
-func (rbfk RBFKernel) Evaluate(X float64, Y float64) float64 {
-	return 1
+func (rbfk RBFKernel) Evaluate(X mat.Vector, Y mat.Vector) float64 {
+	result := mat.NewVecDense(X.Len(), nil)
+
+	result.SubVec(X, Y)
+
+	numerator := mat.Norm(result, 2)
+
+	expression := (numerator * numerator) / (2 * rbfk.sigma * rbfk.sigma)
+	finalResult := math.Exp(expression)
+
+	return finalResult
 }

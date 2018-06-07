@@ -18,7 +18,7 @@ func main() {
 	tokenizedTestSet := tokenizer.TokenizeTweets(testSet)
 	testDTM := tokenizer.CreateDocumentTermMatrix(tokenizedTestSet)
 
-	classifier := model.NewTweetClassifier(kernel.NewPolynomialKernel(5), 10, 0.001)
+	classifier := model.NewTweetClassifier(kernel.NewRBFKernel(0.5), 10, 0.001)
 
 	classifier.LoadTrainingSet(dtm, realLabels)
 	classifier.LoadTestSet(testDTM)
@@ -26,6 +26,6 @@ func main() {
 	classifier.Train(5)
 	classifier.ClassifyTweets()
 	classifier.Validate()
-	classifier.StoreResults("labels_after_classificaiton.txt", "stats_after_classification.txt")
+	classifier.StoreResults("labels_after_classification.txt", "stats_after_classification.txt")
 
 }
