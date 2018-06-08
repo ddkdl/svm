@@ -19,7 +19,7 @@ type LinearKernel struct {
 // PolynomialKernel is decent
 type PolynomialKernel struct {
 	Kernel
-	degree int
+	degree int64
 }
 
 // RBFKernel is best kernel
@@ -33,7 +33,7 @@ func NewLinearKernel() Kernel {
 	return &LinearKernel{}
 }
 
-func NewPolynomialKernel(degree int) Kernel {
+func NewPolynomialKernel(degree int64) Kernel {
 	return &PolynomialKernel{degree: degree}
 }
 
@@ -50,7 +50,7 @@ func (lk LinearKernel) Evaluate(X mat.Vector, Y mat.Vector) float64 {
 func (pk PolynomialKernel) Evaluate(X mat.Vector, Y mat.Vector) float64 {
 	result := float64(1)
 
-	for i := 1; i <= pk.degree; i++ {
+	for i := 1; i <= int(pk.degree); i++ {
 		result *= 1 + mat.Dot(X, Y)
 	}
 
