@@ -122,6 +122,22 @@ func (clf *TweetClassifier) StoreResults(labelsFilename, statsFilename string) {
 	}
 	defer statsFile.Close()
 
+	statsFile.WriteString("TP: ")
+	statsFile.WriteString(fmt.Sprintln(clf.truePositives))
+	statsFile.WriteString("\n")
+
+	statsFile.WriteString("TN: ")
+	statsFile.WriteString(fmt.Sprintln(clf.trueNegatives))
+	statsFile.WriteString("\n")
+
+	statsFile.WriteString("FP: ")
+	statsFile.WriteString(fmt.Sprintln(clf.falsePositives))
+	statsFile.WriteString("\n")
+
+	statsFile.WriteString("FN: ")
+	statsFile.WriteString(fmt.Sprintln(clf.falseNegatives))
+	statsFile.WriteString("\n")
+
 	statsFile.WriteString("Accuracy: ")
 	statsFile.WriteString(fmt.Sprintln(clf.accuracy))
 	statsFile.WriteString("\n")
